@@ -39,14 +39,29 @@ void rpm ()     //This is the function that the interupt calls
 { 
  NbTopsFan++;  //This function measures the rising and falling edge of the hall effect sensors signal
 } 
-/////////////////////////////
+///////////////////////////// temp
+// First we include the libraries
+#include <OneWire.h> 
+#include <DallasTemperature.h>
+// Data wire is plugged into pin 2 on the Arduino 
+#define ONE_WIRE_BUS 46 
+// Setup a oneWire instance to communicate with any OneWire devices  
+// (not just Maxim/Dallas temperature ICs) 
+OneWire oneWire(ONE_WIRE_BUS); 
+// Pass our oneWire reference to Dallas Temperature. 
+DallasTemperature sensors(&oneWire);
+//////////////////
 void setup()
 {
   //////////////// flower
  pinMode(hallsensor, INPUT); //initializes digital pin 2 as an input
  Serial.begin(9600); //This is the setup function where the serial port is initialised,
  attachInterrupt(0, rpm, RISING); //and the interrupt is attached
- ///////////////////////
+////////////////////// temp
+   // start serial port 
+sensors.begin(); 
+ ////////////////////
+  
  lcd.begin(16, 2);              // start the library
  lcd.setCursor(0,0);
  lcd.print("Push the buttons"); // print a simple message
@@ -61,12 +76,17 @@ void loop()
  delay (1000);      //Wait 1 second
  cli();            //Disable interrupts
  Calc = (NbTopsFan * 60 / 7.5); //(Pulse frequency x 60) / 7.5Q, = flow rate in L/hour 
-  lcd.setCursor(6,1);            // move cursor to second line "1" and 9 spaces over
+ lcd.setCursor(6,1);            // move cursor to second line "1" and 9 spaces over
  lcd.print (Calc, DEC); //Prints the number calculated above
  lcd.print (" L/H\r\n"); //Prints "L/hour" and returns a  new line
+////////////////////////////// temp
+ sensors.requestTemperatures(); // Send the command to get temperature readings 
+ lcd.setCursor(1,1);            // move cursor to second line "1" and 9 spaces over
+ lcd.print("T");
+ lcd.setCursor(2,1);            // move cursor to second line "1" and 9 spaces over
+ lcd.print(sensors.getTempCByIndex(0));
+   ////////////////
 
-  //////////////////////
-  
  
  lcd.setCursor(0,1);            // move to the begining of the second line
  lcd_key = read_LCD_buttons();  // read the buttons
@@ -100,7 +120,7 @@ void loop()
      }
      case btnNONE:
      {
-     lcd.print("NONE  ");
+     lcd.print("");
      break;
      }
  }
