@@ -1,4 +1,4 @@
-//Sample using LiquidCrystal library
+ //Sample using LiquidCrystal library
 #include <LiquidCrystal.h>
  
 // select the pins used on the LCD panel
@@ -31,14 +31,15 @@ int read_LCD_buttons()
 
 
  ///////////////////Flower 
- volatile int NbTopsFan; //measuring the rising edges of the signal
-int Calc;                               
-int hallsensor =2;    //The pin location of the sensor
-
-void rpm ()     //This is the function that the interupt calls 
-{ 
- NbTopsFan++;  //This function measures the rising and falling edge of the hall effect sensors signal
-} 
+ volatile int flow_frequency; // Measures flow sensor pulses
+unsigned int l_hour; // Calculated litres/hour
+unsigned char flowsensor = 2; // Sensor Input
+unsigned long currentTime;
+unsigned long cloopTime;
+void flow () // Interrupt function
+{
+   flow_frequency++;
+}
 ///////////////////////////// temp
 // First we include the libraries
 #include <OneWire.h> 
@@ -50,17 +51,67 @@ void rpm ()     //This is the function that the interupt calls
 OneWire oneWire(ONE_WIRE_BUS); 
 // Pass our oneWire reference to Dallas Temperature. 
 DallasTemperature sensors(&oneWire);
-//////////////////
+//////////////////////// machine
+
+   
+ int valve1 = 31;
+ const byte lowLevel = 42;
+ const byte highLevel = 43;
+ const byte highPressureStorage = 44;
+ int air = 32;
+ int DC = 33;
+ int motor = 34;
+ int valve2 = 35;
+ int valve3 = 36;
+ int backWash1 = 37;
+ int backWash2 = 38;
+ 
+const byte LED=13; // LED (built-in on Uno)
+ 
+unsigned long buttonPushedMillis; // when button was released
+unsigned long ledTurnedOnAt; // when led was turned on
+unsigned long turnOnDelay = 0; // wait to turn on LED
+unsigned long turnOffDelay = 5000; // turn off LED after this time
+bool ledReady = false; // flag for when button is let go
+bool ledState = false; // for LED is on or not.
+
+///////////////////////////////
 void setup()
 {
   //////////////// flower
- pinMode(hallsensor, INPUT); //initializes digital pin 2 as an input
- Serial.begin(9600); //This is the setup function where the serial port is initialised,
- attachInterrupt(0, rpm, RISING); //and the interrupt is attached
+   pinMode(flowsensor, INPUT);
+   digitalWrite(flowsensor, HIGH); // Optional Internal Pull-Up
+   Serial.begin(9600);
+   attachInterrupt(0, flow, RISING); // Setup Interrupt
+   sei(); // Enable interrupts
+   currentTime = millis();
+   cloopTime = currentTime;
 ////////////////////// temp
    // start serial port 
 sensors.begin(); 
- ////////////////////
+ //////////////////// machine
+    
+  int valve1 = 31;
+ const byte lowLevel = 42;
+ const byte highLevel = 43;
+ const byte highPressureStorage = 44;
+ int air = 32;
+ int DC = 33;
+ int motor = 34;
+ int valve2 = 35;
+ int valve3 = 36;
+ int backWash1 = 37;
+ int backWash2 = 38;
+ 
+const byte LED=13; // LED (built-in on Uno)
+ 
+unsigned long buttonPushedMillis; // when button was released
+unsigned long ledTurnedOnAt; // when led was turned on
+unsigned long turnOnDelay = 0; // wait to turn on LED
+unsigned long turnOffDelay = 5000; // turn off LED after this time
+bool ledReady = false; // flag for when button is let go
+bool ledState = false; // for LED is on or not.
+///////////////////////////////////////
   
  lcd.begin(16, 2);              // start the library
  lcd.setCursor(0,0);
@@ -71,21 +122,28 @@ void loop()
 {
 
   //////////////flower
- NbTopsFan = 0;      //Set NbTops to 0 ready for calculations
- sei();            //Enables interrupts
- delay (1000);      //Wait 1 second
- cli();            //Disable interrupts
- Calc = (NbTopsFan * 60 / 7.5); //(Pulse frequency x 60) / 7.5Q, = flow rate in L/hour 
- lcd.setCursor(6,1);            // move cursor to second line "1" and 9 spaces over
- lcd.print (Calc, DEC); //Prints the number calculated above
- lcd.print (" L/H\r\n"); //Prints "L/hour" and returns a  new line
+   currentTime = millis();
+   // Every second, calculate and print litres/hour
+   if(currentTime >= (cloopTime + 1000))
+   {
+      cloopTime = currentTime; // Updates cloopTime
+      // Pulse frequency (Hz) = 7.5Q, Q is flow rate in L/min.
+      l_hour = (flow_frequency * 60 / 7.5); // (Pulse frequency x 60 min) / 7.5Q = flowrate in L/hour
+      flow_frequency = 0; // Reset Counter
+      lcd.setCursor(8,1);
+      lcd.print(l_hour, DEC); // Print litres/hour
+      lcd.println(":L/h");
+   }
 ////////////////////////////// temp
  sensors.requestTemperatures(); // Send the command to get temperature readings 
  lcd.setCursor(1,1);            // move cursor to second line "1" and 9 spaces over
  lcd.print("T");
  lcd.setCursor(2,1);            // move cursor to second line "1" and 9 spaces over
  lcd.print(sensors.getTempCByIndex(0));
-   ////////////////
+   ////////////////machine
+   /////////////// air and DC
+
+ ////////////////////////////////////////////////
 
  
  lcd.setCursor(0,1);            // move to the begining of the second line
