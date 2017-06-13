@@ -51,27 +51,38 @@ DallasTemperature sensors(&oneWire);
 //////////////////////// machine
 
    
- int valve1 = 31;
+
  const byte lowLevel = 42;
  const byte highLevel = 43;
  const byte highPressureStorage = 44;
+ const byte backWash1In = 45;
+ const byte backWash2In = 47;
+
+
+  int valve1 = 31;
  int air = 32;
  int DC = 33;
  int motor = 34;
  int valve2 = 35;
  int valve3 = 36;
- int backWash1 = 37;
- int backWash2 = 38;
+ int backWash1Out = 37;
+ int backWash2Out = 38;
  
 const byte LED=13; // LED (built-in on Uno)
  
 unsigned long buttonPushedMillis; // when button was released
+unsigned long buttonPushedMillis2; // when button was released
+
 unsigned long ledTurnedOnAt; // when led was turned on
+unsigned long ledTurnedOnAt2; // when led was turned on
 unsigned long turnOnDelay = 0; // wait to turn on LED
 unsigned long turnOffDelay = 5000; // turn off LED after this time
+unsigned long turnOnDelay2 = 0; // wait to turn on LED
+unsigned long turnOffDelay2 = 5000; // turn off LED after this time
 bool ledReady = false; // flag for when button is let go
 bool ledState = false; // for LED is on or not.
-
+bool ledReady2 = false;  
+bool ledState2 = false;  
 ///////////////////////////////
 void setup()
 {
@@ -94,6 +105,8 @@ pinMode(DC, OUTPUT);
 pinMode(valve2, OUTPUT);
 pinMode(valve3, OUTPUT);
 pinMode(motor, OUTPUT);
+pinMode(backWash1Out, OUTPUT);
+pinMode(backWash2Out, OUTPUT);
 
 digitalWrite(valve1, 1);
 digitalWrite(air, 1);
@@ -101,12 +114,18 @@ digitalWrite(DC, 1);
 digitalWrite(valve2, 1);
 digitalWrite(valve3, 1);
 digitalWrite(motor, 1);
+digitalWrite(backWash1Out, 1);
+digitalWrite(backWash2Out, 1);
+
 
  pinMode(highPressureStorage, INPUT_PULLUP);
+  pinMode(backWash1In, INPUT_PULLUP);
+ pinMode(backWash2In, INPUT_PULLUP);
  pinMode(highLevel, INPUT_PULLUP);
  pinMode(lowLevel, INPUT_PULLUP);
  pinMode(LED, OUTPUT);
  digitalWrite(LED, LOW);
+ 
 ///////////////////////////////////////
   
  lcd.begin(16, 2);              // start the library
@@ -158,16 +177,16 @@ if(Serial.available()) {
        lcd.println("Output 5 OFF");   
   
   } else if(val == '6') {       // Pulse the 6th button       Serial.println("Output 6 ON");   
-    digitalWrite(backWash1, HIGH);     
+    digitalWrite(backWash1Out, HIGH);     
     delay(buttonPressTime); 
-    digitalWrite(backWash1, LOW);    
+    digitalWrite(backWash1Out, LOW);    
     lcd.println("Output 6 OFF");  
    } 
 else if(val == '7') {  // Pulse the 7th button    
       lcd.println("Output 7 ON");    
-      digitalWrite(backWash2, HIGH); 
+      digitalWrite(backWash2Out, HIGH); 
       delay(buttonPressTime);    
-      digitalWrite(backWash2, LOW);    
+      digitalWrite(backWash2Out, LOW);    
       lcd.println("Output 7 OFF");   
    }
  
@@ -205,25 +224,8 @@ else if(val == '7') {  // Pulse the 7th button
                   buttonPushedMillis = currentMillis;
                   ledReady = true;
              }
-             else if (digitalRead(lowLevel) == LOW  ){
-                   digitalWrite(valve1, LOW);
-                   digitalWrite(valve2, HIGH); ///khamosh
-                   digitalWrite(valve3, HIGH);
-                   digitalWrite(motor, HIGH);   
-             }
-            else if (digitalRead(highPressureStorage) == LOW || digitalRead(air) == LOW || digitalRead(DC)==  LOW || digitalRead(valve1)==LOW ){
-                    
-                   digitalWrite(valve2, HIGH); ///khamosh
-                   digitalWrite(valve3, HIGH);
-                   digitalWrite(motor, HIGH);   
-             }
-            else if (digitalRead(highPressureStorage) == HIGH && digitalRead(lowLevel) == HIGH && digitalRead(highLevel) == HIGH  ){
-                    digitalWrite(valve2, LOW); ///khamosh
-                   digitalWrite(valve3, LOW);
-                   digitalWrite(motor, LOW);  
-      
-             }
-             if (ledReady) {
+
+                          if (ledReady) {
                 if ((unsigned long)(currentMillis - buttonPushedMillis) >= turnOnDelay) {
                   digitalWrite(air, LOW);
                   digitalWrite(DC, LOW);                  
@@ -244,7 +246,74 @@ else if(val == '7') {  // Pulse the 7th button
 
                  }
              }
+
+             /////////////////////////////////////
+             else if (digitalRead(lowLevel) == LOW  ){
+                   digitalWrite(valve1, LOW);
+                   digitalWrite(valve2, HIGH); ///khamosh
+                   digitalWrite(valve3, HIGH);
+                   digitalWrite(motor, HIGH);   
+             }
+
+             ///////////////////////////////
+                  ////////////////////////////////////
+         else if (digitalRead(backWash1In) == LOW    ){
  
+                 buttonPushedMillis = currentMillis;
+                 ledReady2 = true;
+                      }
+                        
+            else if (digitalRead(backWash2In) == LOW   ){
+                  if ((unsigned long)(currentMillis - ledTurnedOnAt) >= 5000) {
+                 ledState = false;
+                   digitalWrite(backWash2Out, LOW);
+                   digitalWrite(valve2, HIGH); ///khamosh
+                   digitalWrite(valve3, HIGH);
+                   digitalWrite(motor, HIGH);  
+
+                 }
+             }
+
+
+
+            if (ledReady2) {
+              if ((unsigned long)(currentMillis - buttonPushedMillis2) >= turnOnDelay2) {
+                 digitalWrite(backWash1Out, LOW);
+                 digitalWrite(valve2, HIGH); ///khamosh
+                digitalWrite(valve3, HIGH);
+                digitalWrite(motor, HIGH); 
+                ledState2 = true;
+                ledTurnedOnAt2 = currentMillis;
+                ledReady2 = false;
+             }
+           }
+
+            else if (ledState2) {
+              if ((unsigned long)(currentMillis - ledTurnedOnAt2) >= turnOffDelay2) {
+               ledState2 = false;
+                digitalWrite(backWash1Out, HIGH);
+                digitalWrite(valve2, LOW); ///khamosh
+                digitalWrite(valve3, LOW);
+                digitalWrite(motor, LOW); 
+
+               }
+           }
+           ////////////////////////////////
+            else if (digitalRead(highPressureStorage) == LOW || digitalRead(air) == LOW || digitalRead(DC)==  LOW || digitalRead(valve1)==LOW  ){
+                    
+                   digitalWrite(valve2, HIGH); ///khamosh
+                   digitalWrite(valve3, HIGH);
+                   digitalWrite(motor, HIGH);   
+             }
+
+             
+            else if (digitalRead(highPressureStorage) == HIGH && digitalRead(lowLevel) == HIGH && digitalRead(highLevel) == HIGH  ){
+                    digitalWrite(valve2, LOW); ///khamosh
+                   digitalWrite(valve3, LOW);
+                   digitalWrite(motor, LOW);  
+      
+             }
+
  ///////////////////////  LCD shield buttons
  lcd.setCursor(0,1);            
  lcd_key = read_LCD_buttons();   
