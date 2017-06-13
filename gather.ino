@@ -72,17 +72,27 @@ const byte LED=13; // LED (built-in on Uno)
  
 unsigned long buttonPushedMillis; // when button was released
 unsigned long buttonPushedMillis2; // when button was released
+unsigned long buttonPushedMillis3; // when button was released
 
 unsigned long ledTurnedOnAt; // when led was turned on
 unsigned long ledTurnedOnAt2; // when led was turned on
+unsigned long ledTurnedOnAt3; // when led was turned on
+
+
 unsigned long turnOnDelay = 0; // wait to turn on LED
-unsigned long turnOffDelay = 5000; // turn off LED after this time
+unsigned long turnOffDelay = 4000; // turn off LED after this time
 unsigned long turnOnDelay2 = 0; // wait to turn on LED
-unsigned long turnOffDelay2 = 5000; // turn off LED after this time
+unsigned long turnOffDelay2 = 6000; // turn off LED after this time
+unsigned long turnOnDelay3 = 0; // wait to turn on LED
+unsigned long turnOffDelay3 = 7000; // turn off LED after this time
+
+
 bool ledReady = false; // flag for when button is let go
 bool ledState = false; // for LED is on or not.
 bool ledReady2 = false;  
 bool ledState2 = false;  
+bool ledReady3 = false;  
+bool ledState3 = false;  
 ///////////////////////////////
 void setup()
 {
@@ -218,14 +228,14 @@ else if(val == '7') {  // Pulse the 7th button
  lcd.print("*C");
    ////////////////machine
      
-             unsigned long currentMillis = millis(); 
+      unsigned long currentMillis = millis(); 
              if (digitalRead(highLevel) == LOW) {
                   digitalWrite(valve1, HIGH);
                   buttonPushedMillis = currentMillis;
                   ledReady = true;
              }
 
-                          if (ledReady) {
+              if (ledReady) {
                 if ((unsigned long)(currentMillis - buttonPushedMillis) >= turnOnDelay) {
                   digitalWrite(air, LOW);
                   digitalWrite(DC, LOW);                  
@@ -256,26 +266,12 @@ else if(val == '7') {  // Pulse the 7th button
              }
 
              ///////////////////////////////
-                  ////////////////////////////////////
-         else if (digitalRead(backWash1In) == LOW    ){
- 
-                 buttonPushedMillis = currentMillis;
+                  //////////////////////////////////// BV1 
+                                 else if (digitalRead(backWash1In) == LOW    ){
+                 buttonPushedMillis2 = currentMillis;
                  ledReady2 = true;
                       }
-                        
-            else if (digitalRead(backWash2In) == LOW   ){
-                  if ((unsigned long)(currentMillis - ledTurnedOnAt) >= 5000) {
-                 ledState = false;
-                   digitalWrite(backWash2Out, LOW);
-                   digitalWrite(valve2, HIGH); ///khamosh
-                   digitalWrite(valve3, HIGH);
-                   digitalWrite(motor, HIGH);  
-
-                 }
-             }
-
-
-
+ 
             if (ledReady2) {
               if ((unsigned long)(currentMillis - buttonPushedMillis2) >= turnOnDelay2) {
                  digitalWrite(backWash1Out, LOW);
@@ -298,6 +294,8 @@ else if(val == '7') {  // Pulse the 7th button
 
                }
            }
+     
+    
            ////////////////////////////////
             else if (digitalRead(highPressureStorage) == LOW || digitalRead(air) == LOW || digitalRead(DC)==  LOW || digitalRead(valve1)==LOW  ){
                     
@@ -306,13 +304,13 @@ else if(val == '7') {  // Pulse the 7th button
                    digitalWrite(motor, HIGH);   
              }
 
-             
-            else if (digitalRead(highPressureStorage) == HIGH && digitalRead(lowLevel) == HIGH && digitalRead(highLevel) == HIGH  ){
-                    digitalWrite(valve2, LOW); ///khamosh
-                   digitalWrite(valve3, LOW);
-                   digitalWrite(motor, LOW);  
+          else if (digitalRead(highPressureStorage) == HIGH && digitalRead(lowLevel) == HIGH && digitalRead(highLevel) == HIGH  ){
+              digitalWrite(valve2, LOW); ///khamosh
+             digitalWrite(valve3, LOW);
+             digitalWrite(motor, LOW);  
       
-             }
+                  }
+
 
  ///////////////////////  LCD shield buttons
  lcd.setCursor(0,1);            
