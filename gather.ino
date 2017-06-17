@@ -2,8 +2,8 @@
  
  LiquidCrystal lcd(8, 9, 4, 5, 6, 7);
  
- int lcd_key     = 0;
-int adc_key_in  = 0;
+int lcd_key     = 0;
+int adc_key_in  = 0; 
 #define btnRIGHT  0
 #define btnUP     1
 #define btnDOWN   2
@@ -24,7 +24,7 @@ int read_LCD_buttons()
 }
 
 
-/////////////serial
+///////////// 
 int buttonPressTime = 250;   // Number of milliseconds to hold outputs o
 
  ///////////////////Flower 
@@ -37,6 +37,11 @@ void flow () // Interrupt function
 {
    flow_frequency++;
 }
+
+volatile unsigned long isrCounter;
+unsigned long pulseCount;
+unsigned long stopCount = 100000;
+ 
 ///////////////////////////// temp
 // First we include the libraries
 #include <OneWire.h> 
@@ -96,15 +101,10 @@ bool ledState3 = false;
 ///////////////////////////////
 void setup()
 {
- 
+ Serial.begin(9600);
   //////////////// flower
-   pinMode(flowsensor, INPUT);
-   digitalWrite(flowsensor, HIGH); // Optional Internal Pull-Up
-   Serial.begin(9600);
-   attachInterrupt(0, flow, RISING); // Setup Interrupt
-   sei(); // Enable interrupts
-   currentTime = millis();
-   cloopTime = currentTime;
+//attachInterrupt(0, countP, RISING);
+
 ////////////////////// temp
    // start serial port 
 sensors.begin(); 
@@ -148,49 +148,99 @@ void loop()
 {
  /////////////////////////////
  byte val;   // Check if a value has been sent by the host   
-if(Serial.available()) {  
+if(Serial.available()) { 
+    
    val = Serial.read();  
-    if(val == '1') {       // Pulse the 1st button  
-     Serial.println("Output 1 ON");  
-     digitalWrite(valve1, HIGH);   
-    delay(buttonPressTime);  
+    if(val == '1') {   
+       
+      digitalWrite(air, HIGH);
+     digitalWrite(DC, HIGH);
+     digitalWrite(valve2, HIGH);
+     digitalWrite(valve3, HIGH);
+     digitalWrite(motor, HIGH);   
+      digitalWrite(valve1, HIGH);
+     delay(1000); 
      digitalWrite(valve1, LOW);  
-     Serial.println("Output 1 OFF"); 
- 
- 
-    }
+     delay(1000);
+      digitalWrite(valve1, HIGH);
+     delay(1000); 
+     digitalWrite(valve1, LOW);  
+      
+     }
+     
+
+    
  else if(val == '2') {       // Pulse the 2nd button  
    lcd.println("Output 2 ON");    
-   digitalWrite(air, HIGH);    
-   delay(buttonPressTime);     
-   digitalWrite(air, LOW);  
-   lcd.println("Output 2 OFF");  
+     digitalWrite(air, HIGH);
+     digitalWrite(DC, HIGH);
+     digitalWrite(valve1, HIGH);
+     digitalWrite(valve3, HIGH);
+     digitalWrite(motor, HIGH);   
+      digitalWrite(valve1, HIGH);
+     delay(1000); 
+     digitalWrite(valve2, LOW);  
+     delay(1000);
+      digitalWrite(valve2, HIGH);
+     delay(1000); 
+     digitalWrite(valve2, LOW);    
    } 
   else if(val == '3') {       // Pulse the 3rd button    
      lcd.println("Output 3 ON");   
-      digitalWrite(DC, HIGH);   
-      delay(buttonPressTime);   
-      digitalWrite(DC, LOW);   
-    lcd.println("Output 3 OFF");   
+     digitalWrite(air, HIGH);
+     digitalWrite(DC, HIGH);
+     digitalWrite(valve2, HIGH);
+     digitalWrite(valve1, HIGH);
+     digitalWrite(motor, HIGH);   
+      digitalWrite(valve1, HIGH);
+     delay(1000); 
+     digitalWrite(valve3, LOW);  
+     delay(1000);
+      digitalWrite(valve3, HIGH);
+     delay(1000); 
+     digitalWrite(valve3, LOW);  
   }
  else if(val == '4') {       // Pulse the 4th button  
-     Serial.println("Output 4 ON");   
-    digitalWrite(motor, HIGH); 
-      delay(buttonPressTime);      
- digitalWrite(motor, LOW);    
-   lcd.println("Output 4 OFF"); 
+      Serial.println("Output 4 ON");   
+     digitalWrite(valve1, HIGH);
+     digitalWrite(DC, HIGH);
+     digitalWrite(valve2, HIGH);
+     digitalWrite(valve3, HIGH);
+     digitalWrite(motor, HIGH);   
+      digitalWrite(air, HIGH);
+     delay(1000); 
+     digitalWrite(air, LOW);  
+     delay(1000);
+      digitalWrite(air, HIGH);
+     delay(1000); 
+     digitalWrite(valve1, LOW);  
     } else if(val == '5') {       // Pulse the 5th button
        Serial.println("Output 5 ON");    
-       digitalWrite(valve3, HIGH);   
-       delay(buttonPressTime);  
-       digitalWrite(valve3, LOW);     
-       lcd.println("Output 5 OFF");   
+     digitalWrite(valve1, HIGH);
+     digitalWrite(valve2, HIGH);
+     digitalWrite(valve3, HIGH);
+     digitalWrite(motor, HIGH);   
+      digitalWrite(air, HIGH);
+     delay(1000); 
+     digitalWrite(DC, LOW);  
+     delay(1000);
+      digitalWrite(DC, HIGH);
+     delay(1000); 
+     digitalWrite(DC, LOW);
   
   } else if(val == '6') {       // Pulse the 6th button       Serial.println("Output 6 ON");   
     digitalWrite(backWash1Out, HIGH);     
-    delay(buttonPressTime); 
-    digitalWrite(backWash1Out, LOW);    
-    lcd.println("Output 6 OFF");  
+     digitalWrite(valve1, HIGH);
+     digitalWrite(DC, HIGH);
+     digitalWrite(valve2, HIGH);
+     digitalWrite(valve3, HIGH);  
+      digitalWrite(air, HIGH);
+     delay(1000); 
+     digitalWrite(motor, LOW);  
+     delay(1000);
+      digitalWrite(motor, HIGH);
+     delay(1000); 
+     digitalWrite(motor, LOW);  
    } 
 else if(val == '7') {  // Pulse the 7th button    
       lcd.println("Output 7 ON");    
@@ -211,14 +261,24 @@ else if(val == '7') {  // Pulse the 7th button
    if(currentTime >= (cloopTime + 1000))
    {
       cloopTime = currentTime; // Updates cloopTime
-      // Pulse frequency (Hz) = 7.5Q, Q is flow rate in L/min.
-      l_hour = (flow_frequency * 60 / 7.5); // (Pulse frequency x 60 min) / 7.5Q = flowrate in L/hour
-      flow_frequency = 0; // Reset Counter
-      lcd.setCursor(0,0);
-      lcd.print("Masraf: ");
-      lcd.print(l_hour, DEC);  
-      lcd.println(":L/h");
+       
+     long pulseCount = isrCounter;
+     interrupts();
+     lcd.setCursor(0,0);
+     lcd.print("Litr/H=");
+     lcd.print(pulseCount);
+     if (pulseCount > stopCount)
+         { 
+           lcd.print("TV");
+           lcd.print(pulseCount);
+           lcd.print("pu");
+           while(true) {}   
+         }
+
    }
+
+ 
+
 ////////////////////////////// temp
  sensors.requestTemperatures(); // Send the command to get temperature readings 
  lcd.setCursor(0,1);           
@@ -296,23 +356,19 @@ else if(val == '7') {  // Pulse the 7th button
            }
      
     
-           ////////////////////////////////
+           //////////////////////////////// presure 
             else if (digitalRead(highPressureStorage) == LOW || digitalRead(air) == LOW || digitalRead(DC)==  LOW || digitalRead(valve1)==LOW  ){
                     
                    digitalWrite(valve2, HIGH); ///khamosh
                    digitalWrite(valve3, HIGH);
                    digitalWrite(motor, HIGH);   
              }
-
           else if (digitalRead(highPressureStorage) == HIGH && digitalRead(lowLevel) == HIGH && digitalRead(highLevel) == HIGH  ){
               digitalWrite(valve2, LOW); ///khamosh
              digitalWrite(valve3, LOW);
              digitalWrite(motor, LOW);  
-      
-                  }
-
-
- ///////////////////////  LCD shield buttons
+                  } 
+  ///////////////////////  LCD shield buttons
  lcd.setCursor(0,1);            
  lcd_key = read_LCD_buttons();   
  
@@ -321,12 +377,17 @@ else if(val == '7') {  // Pulse the 7th button
    case btnRIGHT:
      {
      lcd.print("RIGHT ");
+   
+     Serial.println("Output 1 ON");  
      break;
      }
    case btnLEFT:
      {
      lcd.print("LEFT   ");
-     break;
+      
+  
+      break;
+    
      }
    case btnUP:
      {
@@ -335,8 +396,11 @@ else if(val == '7') {  // Pulse the 7th button
      }
    case btnDOWN:
      {
+       
      lcd.print("DOWN  ");
-     break;
+    break;
+      
+      
      }
    case btnSELECT:
      {
@@ -352,3 +416,9 @@ else if(val == '7') {  // Pulse the 7th button
  
 }
 }
+
+void countP() 
+{
+  isrCounter++;
+}
+
