@@ -109,7 +109,7 @@ void setup()
    // start serial port 
 sensors.begin(); 
  //////////////////// machine
- pinMode(valve1, OUTPUT);
+pinMode(valve1, OUTPUT);
 pinMode(air, OUTPUT);
 pinMode(DC, OUTPUT);
 pinMode(valve2, OUTPUT);
@@ -287,7 +287,20 @@ else if(val == '7') {  // Pulse the 7th button
  lcd.setCursor(14,1);             
  lcd.print("*C");
    ////////////////machine
-     
+
+   ///Ex Temp : warning 
+   Serial.println(sensors.getTempCByIndex(0));
+     if (sensors.getTempCByIndex(0) > 60){
+      digitalWrite(backWash1Out, HIGH);     
+     digitalWrite(valve1, HIGH);
+     digitalWrite(DC, HIGH);
+     digitalWrite(valve1, HIGH);
+     digitalWrite(valve2, HIGH);
+     digitalWrite(valve3, HIGH);  
+      digitalWrite(air, HIGH);
+       lcd.print("ER: Temp is High");
+
+     }
       unsigned long currentMillis = millis(); 
              if (digitalRead(highLevel) == LOW) {
                   digitalWrite(valve1, HIGH);
