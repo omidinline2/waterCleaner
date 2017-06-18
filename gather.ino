@@ -87,9 +87,9 @@ unsigned long ledTurnedOnAt3; // when led was turned on
 unsigned long turnOnDelay = 0; // wait to turn on LED
 unsigned long turnOffDelay = 4000; // turn off LED after this time
 unsigned long turnOnDelay2 = 0; // wait to turn on LED
-unsigned long turnOffDelay2 = 6000; // turn off LED after this time
-unsigned long turnOnDelay3 = 0; // wait to turn on LED
-unsigned long turnOffDelay3 = 7000; // turn off LED after this time
+unsigned long turnOffDelay2 = 10000; // turn off LED after this time
+unsigned long turnOnDelay3 = 10000; // wait to turn on LED
+unsigned long turnOffDelay3 = 10000; // turn off LED after this time
 
 
 bool ledReady = false; // flag for when button is let go
@@ -103,7 +103,7 @@ void setup()
 {
  Serial.begin(9600);
   //////////////// flower
-//attachInterrupt(0, countP, RISING);
+attachInterrupt(0, countP, RISING);
 
 ////////////////////// temp
    // start serial port 
@@ -167,9 +167,7 @@ if(Serial.available()) {
      digitalWrite(valve1, LOW);  
       
      }
-     
-
-    
+ 
  else if(val == '2') {       // Pulse the 2nd button  
    lcd.println("Output 2 ON");    
      digitalWrite(air, HIGH);
@@ -263,12 +261,18 @@ else if(val == '7') {  // Pulse the 7th button
       cloopTime = currentTime; // Updates cloopTime
        
      long pulseCount = isrCounter;
+     
+
      interrupts();
      lcd.setCursor(0,0);
-     lcd.print("Litr/H=");
-     lcd.print(pulseCount);
+     
+      
+     lcd.print(pulseCount/5200);
+     lcd.print("L");
+      
      if (pulseCount > stopCount)
          { 
+           
            lcd.print("TV");
            lcd.print(pulseCount);
            lcd.print("pu");
@@ -286,21 +290,25 @@ else if(val == '7') {  // Pulse the 7th button
  lcd.print(sensors.getTempCByIndex(0));
  lcd.setCursor(14,1);             
  lcd.print("*C");
-   ////////////////machine
 
-   ///Ex Temp : warning 
-   Serial.println(sensors.getTempCByIndex(0));
-     if (sensors.getTempCByIndex(0) > 60){
-      digitalWrite(backWash1Out, HIGH);     
-     digitalWrite(valve1, HIGH);
-     digitalWrite(DC, HIGH);
-     digitalWrite(valve1, HIGH);
-     digitalWrite(valve2, HIGH);
-     digitalWrite(valve3, HIGH);  
-      digitalWrite(air, HIGH);
-       lcd.print("ER: Temp is High");
-
+  ///Ex Temp : warning 
+  Serial.println(sensors.getTempCByIndex(0));
+  while (sensors.getTempCByIndex(0) > 66){
+   
+       
+  digitalWrite(DC, HIGH);
+  digitalWrite(valve1, HIGH);
+  digitalWrite(valve2, HIGH);
+  digitalWrite(valve3, HIGH);  
+  digitalWrite(air, HIGH);
+  lcd.clear();
+  lcd.setCursor (0,0);
+  lcd.print("ER:Temp is High");
+  lcd.setCursor (0,1);
+  lcd.print("ER:Temp is High");
      }
+        ////////////////machine
+
       unsigned long currentMillis = millis(); 
              if (digitalRead(highLevel) == LOW) {
                   digitalWrite(valve1, HIGH);
@@ -340,7 +348,7 @@ else if(val == '7') {  // Pulse the 7th button
 
              ///////////////////////////////
                   //////////////////////////////////// BV1 
-                                 else if (digitalRead(backWash1In) == LOW    ){
+               else if (digitalRead(backWash1In) == LOW    ){
                  buttonPushedMillis2 = currentMillis;
                  ledReady2 = true;
                       }
@@ -358,14 +366,27 @@ else if(val == '7') {  // Pulse the 7th button
            }
 
             else if (ledState2) {
-              if ((unsigned long)(currentMillis - ledTurnedOnAt2) >= turnOffDelay2) {
-               ledState2 = false;
+              if ((unsigned long)(currentMillis - ledTurnedOnAt2) >= turnOnDelay3) {
+               
                 digitalWrite(backWash1Out, HIGH);
+                digitalWrite(backWash2Out, LOW);
+                 digitalWrite(valve2, HIGH); ///khamosh
+                digitalWrite(valve3, HIGH);
+                digitalWrite(motor, HIGH); 
+                ledState3 = true;
+                ledTurnedOnAt3 = currentMillis;
+                ledState2 = false;
+               }
+           }
+           else if (ledState3) {
+              if ((unsigned long)(currentMillis - ledTurnedOnAt3) >= 10000) {
+               ledState3 = false;
+                digitalWrite(backWash2Out, HIGH);
                 digitalWrite(valve2, LOW); ///khamosh
                 digitalWrite(valve3, LOW);
                 digitalWrite(motor, LOW); 
-
-               }
+                ledTurnedOnAt3 = currentMillis;
+             }
            }
      
     
@@ -396,24 +417,20 @@ else if(val == '7') {  // Pulse the 7th button
      }
    case btnLEFT:
      {
-     lcd.print("LEFT   ");
       
-  
+
       break;
     
      }
    case btnUP:
      {
-     lcd.print("UP    ");
+     lcd.print("UP  ");
      break;
      }
    case btnDOWN:
-     {
-       
-     lcd.print("DOWN  ");
-    break;
-      
-      
+       {
+     lcd.print("Down");
+     break;
      }
    case btnSELECT:
      {
