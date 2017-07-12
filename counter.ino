@@ -16,6 +16,14 @@
           ///////////// 
           int buttonPressTime2 = 250;   // Number of milliseconds to hold outputs o
  ///////////////////Flower ///EEPROM
+ // flow1
+byte sensorInterrupt = 0;  // 0 = pin 2; 1 = pin 3
+float calibrationFactor = 4.5;
+volatile byte pulseCount2;  
+float flowRate;
+unsigned int flowMilliLitres;
+unsigned long oldTime;
+
  //last pressed Btn
  uint8_t  EEPROMaddress = 50;
  int lastPressed;
@@ -156,10 +164,20 @@ void printTimerValue(byte timerIdx, byte showTimerName = false);
 
 bool state = false;
 void setup() {
+  //
           ////////////////////// temp
           // start serial port 
           sensors.begin();            
             //////////////// flower && EPROM
+           // flow1
+           
+            pulseCount2        = 0;
+            flowRate          = 0.0;
+            flowMilliLitres   = 0;
+            oldTime           = 0;
+          
+            attachInterrupt(sensorInterrupt, pulseCounter, FALLING);
+  
           if (lastPressed = lowLevel){
             digitalWrite(valve1, LOW);
           }else if (lastPressed = highLevel){
@@ -234,6 +252,46 @@ void loop()
           }
         
            ///////////////////////////////////flow& EEPROM
+           // flow 1
+           if((millis() - oldTime) > 1000)    // Only process counters once per second
+  {
+    detachInterrupt(sensorInterrupt);
+
+    flowRate = ((1000.0 / (millis() - oldTime)) * pulseCount2) / calibrationFactor;
+ 
+    oldTime = millis();
+    flowMilliLitres = (flowRate *60)/7.5;
+     unsigned int frac;
+    
+    Serial.print(int(flowRate));  // Print the integer part of the variable
+    Serial.print(".");             // Print the decimal point
+    frac = (flowRate - int(flowRate)) * 10;
+    Serial.print(frac, DEC) ;      // Print the fractional part of the variable
+    Serial.print(" ");             // Output separator
+    Serial.print(flowMilliLitres);
+    if (flowMilliLitres > 10){
+      flowIsWorking = true;
+    }
+     lcd.setCursor(0, 0);
+    lcd.print("                ");
+    lcd.setCursor(0, 0);
+    lcd.print("Flow: ");
+    if(int(flowRate) < 10)
+    {
+      lcd.print(" ");
+    }
+    lcd.print((int)flowRate);   // Print the integer part of the variable
+    lcd.print('.');             // Print the decimal point
+    lcd.print(frac, DEC) ;      // Print the fractional part of the variable
+    lcd.print(" L");
+    lcd.print("/min");
+ 
+ 
+     pulseCount2 = 0;
+    
+    // Enable the interrupt again now that we've finished sending output
+    attachInterrupt(sensorInterrupt, pulseCounter, FALLING);
+  }
            //last Pressed
            EEPROM.write(EEPROMaddress, lastPressed);
           long address=0;
@@ -243,11 +301,13 @@ void loop()
           {
           cloopTime = currentTime; // Updates cloopTime
           unsigned long  pulseCount = isrCounter ;
-          lcd.setCursor(0,1); 
+           lcd.setCursor(0,1); 
           lcd.print(EEPROMReadlong(0)/590);
           lcd.print("L");
           EEPROMWritelong(address, pulseCount);
           address+=5;
+          // flow is working
+ 
           // if liters > 100000 liters, sleep forever
           while (EEPROMReadlong(0)> ( 12100000)){
           digitalWrite(backWash1Out, HIGH);
@@ -809,5 +869,5 @@ void refreshMenuDisplay (byte refreshMode)
 void pulseCounter()
 {
   // Increment the pulse counter
-  pulseCount++;
+  pulseCount2++;
 }
