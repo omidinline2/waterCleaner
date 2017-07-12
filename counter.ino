@@ -6,8 +6,7 @@
 #include "Config.h"
 #include <TimerOne.h>
 #include <OneWire.h> 
-#include <EEPROM.h>
-     
+      
          #define ALARM_PIN 22
           bool val  ;
           bool BizzarStop;
@@ -16,27 +15,69 @@
           bool currentStateBtn = true;
           ///////////// 
           int buttonPressTime2 = 250;   // Number of milliseconds to hold outputs o
-          ///////////////////Flower 
-          volatile int flow_frequency; // Measures flow sensor pulses
-          unsigned int l_hour; // Calculated litres/hour
-          unsigned char flowsensor = 2; // Sensor Input
-          unsigned long currentTime;
-          unsigned long cloopTime;
-          void flow () // Interrupt function
-          {
-          flow_frequency++;
-          }
-          
-          volatile unsigned long isrCounter;
-          unsigned long pulseCount;
-          unsigned long stopCount = 100000;
-          
- //////////////////////////flower2
+ ///////////////////Flower ///EEPROM
+ //last pressed Btn
+ uint8_t  EEPROMaddress = 50;
+ int lastPressed;
+//Needed to access the eeprom read write functions
+#include <EEPROM.h> 
+#include <avr/sleep.h>
+#include <avr/interrupt.h>
+long number2 = 987654321;
+
+//This function will write a 4 byte (32bit) long to the eeprom at
+//the specified address to address + 3.
+void EEPROMWritelong(int address, long value)
+      {
+      //Decomposition from a long to 4 bytes by using bitshift.
+      //One = Most significant -> Four = Least significant byte
+      byte four = (value & 0xFF);
+      byte three = ((value >> 8) & 0xFF);
+      byte two = ((value >> 16) & 0xFF);
+      byte one = ((value >> 24) & 0xFF);
+      byte zero = ((value >> 32) & 0xFF);
+
+      //Write the 4 bytes into the eeprom memory.
+      EEPROM.write(address, four);
+      EEPROM.write(address + 1, three);
+      EEPROM.write(address + 2, two);
+      EEPROM.write(address + 3, one);
+      EEPROM.write(address + 4, zero);
+  
+
+      }
+
+//This function will return a 4 byte (32bit) long from the eeprom
+//at the specified address to address + 3.
+long EEPROMReadlong(long address)
+      {
+      //Read the 4 bytes from the eeprom memory.
+      long four = EEPROM.read(address);
+      long three = EEPROM.read(address + 1);
+      long two = EEPROM.read(address + 2);
+      long one = EEPROM.read(address + 3);
+      long zero = EEPROM.read(address + 4);
+
+      //Return the recomposed long by using bitshift.
+      return ((four << 0) & 0xFF) + ((three << 8) & 0xFFFF) + ((two << 16) & 0xFFFFFF) + ((one << 24) & 0xFFFFFFFF)+ ((zero << 32) & 0xFFFFFFFFFF);
+      }
  
-           
-          unsigned int l_hour2; // Calculated litres/hour
+unsigned int l_hour;  
+unsigned char flowsensor = 2; // Sensor Input
+unsigned long currentTime;
+unsigned long cloopTime;
+volatile unsigned long isrCounter;
+unsigned long pulseCount;
+unsigned long stopCount = 100000;
+ #include <avr/sleep.h>
+void countP() 
+{
+isrCounter++;
+}
           
           
+ ////////////////////////// 
+        
           const byte lowLevel = 42;
           const byte highLevel = 43;
           const byte highPressureStorage = 44;
@@ -118,14 +159,15 @@ void setup() {
           ////////////////////// temp
           // start serial port 
           sensors.begin();            
-          //////////////// flower
-            pinMode(flowsensor, INPUT);
-               digitalWrite(flowsensor, HIGH); // Optional Internal Pull-Up
-                attachInterrupt(0, flow, RISING); // Setup Interrupt
-               sei(); // Enable interrupts
-               currentTime = millis();
-               cloopTime = currentTime;
-          //////////////////// machine
+            //////////////// flower && EPROM
+          if (lastPressed = lowLevel){
+            digitalWrite(valve1, LOW);
+          }else if (lastPressed = highLevel){
+            digitalWrite(valve1, HIGH);
+          }
+               attachInterrupt(0, countP, RISING);  
+               isrCounter = EEPROMReadlong(0);
+        //////////////////// machine
           pinMode(valve1, OUTPUT);
           pinMode(air, OUTPUT);
           pinMode(DC, OUTPUT);
@@ -136,7 +178,7 @@ void setup() {
           pinMode(backWash1Out, OUTPUT);
           pinMode(backWash2Out, OUTPUT);
           
-          digitalWrite(valve1, 1);
+         // digitalWrite(valve1, 1);
           digitalWrite(air, 1);
           digitalWrite(DC, 1);
           digitalWrite(valve2, 1);
@@ -171,7 +213,7 @@ void setup() {
 
   // Use soft PWM for backlight, as hardware PWM must be avoided for some LCD shields.
  Timer1.initialize();
-   Timer1.attachInterrupt(lcdBacklightISR, 500);
+ Timer1.attachInterrupt(lcdBacklightISR, 500);
  
   setBacklightBrightness(currentConfig.displayBrightness);
   
@@ -182,6 +224,7 @@ void setup() {
  
 void loop()
 {
+
   turnOffDelay =  currentConfig.alarmDuration * 1000 ;
   turnOffDelay2 =  currentConfig.BV1Duration * 1000 ;
   turnOffDelay3 =  currentConfig.BV2Duration * 1000 ;
@@ -190,22 +233,38 @@ void loop()
               alarm(true);
           }
         
-           ///////////////////////////////////flow
+           ///////////////////////////////////flow& EEPROM
+           //last Pressed
+           EEPROM.write(EEPROMaddress, lastPressed);
+          long address=0;
           currentTime = millis();
-         // Every second, calculate and print litres/hour
-         if(currentTime >= (cloopTime + 1000))
-         {
-            cloopTime = currentTime; // Updates cloopTime
-            // Pulse frequency (Hz) = 7.5Q, Q is flow rate in L/min.
-            l_hour = (flow_frequency * 60 / 7.5); // (Pulse frequency x 60 min) / 7.5Q = flowrate in L/hour
-            l_hour2= (flow_frequency * 60 / 7.5); // (Pulse frequency x 60 min) / 7.5Q = flowrate in L/hour
-            flow_frequency = 0; // Reset Counter
-            Serial.print(l_hour/520, DEC); // Print litres/hour
-          //  Serial.println("22222 = ");
-           //  Serial.print(l_hour2, DEC);
-            Serial.println(" L/hour");
-         }
- 
+          // Every second, calculate and print litres/hour
+          if(currentTime >= (cloopTime + 1000))
+          {
+          cloopTime = currentTime; // Updates cloopTime
+          unsigned long  pulseCount = isrCounter ;
+          lcd.setCursor(0,1); 
+          lcd.print(EEPROMReadlong(0)/590);
+          lcd.print("L");
+          EEPROMWritelong(address, pulseCount);
+          address+=5;
+          // if liters > 100000 liters, sleep forever
+          while (EEPROMReadlong(0)> ( 12100000)){
+          digitalWrite(backWash1Out, HIGH);
+          digitalWrite(backWash2Out, HIGH);
+          digitalWrite(valve1, HIGH); 
+          digitalWrite(valve2, HIGH);  
+          digitalWrite(motor, HIGH); 
+          lcd.setCursor(0,0);
+          lcd.print("OverFlow");
+          lcd.setCursor(0,1);
+          lcd.print("0XFFFFFFFF");
+          set_sleep_mode(SLEEP_MODE_PWR_DOWN);
+          cli();  // Disable interrupts
+          sleep_mode(); 
+          }
+          
+          } 
           ////////////////machine
           
           unsigned long currentMillis = millis(); 
@@ -216,6 +275,7 @@ void loop()
                 buttonPushedMillis = currentMillis;
                 ledReady = true;
                 state = true;
+                lastPressed = highLevel;
             }
           }
           if (ledReady) {
@@ -245,6 +305,7 @@ void loop()
           digitalWrite(valve1, LOW);
           digitalWrite(valve2, HIGH); ///khamosh
           digitalWrite(motor, HIGH);   
+          lastPressed = lowLevel;
           }
  
           //////////////////////////////////// BV1 
@@ -342,7 +403,7 @@ switch (appMode)
          }
       if (btn == BUTTON_SELECT_PRESSED )
       {
-     lcd.print(l_hour2, DEC);
+     //lcd.print(l_hour2, DEC);
       delay(5000);
       }
       else if (btn == BUTTON_SELECT_LONG_PRESSED)
@@ -731,8 +792,7 @@ void refreshMenuDisplay (byte refreshMode)
           i++;
            }
           delay(5000);
-          /////Bizzer
-          
+           
           ///change lcd color
 
           ///send to bluetoooth alarm both oprator and customer
