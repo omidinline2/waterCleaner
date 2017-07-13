@@ -1,6 +1,9 @@
  
  
 #include <LiquidCrystal.h>
+#define LCD_BACKLIGHT_PIN         10  // D10 controls LCD backlight
+#define BUTTONHYSTERESIS         10  // hysteresis for valid button sensing window
+
 #include "LcdKeypad.h"
 #include "MenuData.h"
 #include "Config.h"
@@ -17,7 +20,7 @@
           int buttonPressTime2 = 250;   // Number of milliseconds to hold outputs o
  ///////////////////Flower ///EEPROM
  // flow1
-byte sensorInterrupt = 0;  // 0 = pin 2; 1 = pin 3
+byte sensorInterrupt = 1;  // 0 = pin 2; 1 = pin 3
 float calibrationFactor = 4.5;
 volatile byte pulseCount2;  
 float flowRate;
@@ -162,7 +165,9 @@ void printTimerValue(byte timerIdx, byte showTimerName = false);
 
 bool state = false;
 void setup() {
-  //
+          //lcd BackLight
+           digitalWrite( LCD_BACKLIGHT_PIN, LOW );  //backlight control pin D3 is high (on)
+           pinMode( LCD_BACKLIGHT_PIN, OUTPUT );     //D3 is an output
           ////////////////////// temp
           // start serial port 
           sensors.begin();            
@@ -174,14 +179,14 @@ void setup() {
             flowMilliLitres   = 0;
             oldTime           = 0;
           
-           // attachInterrupt(sensorInterrupt, pulseCounter, FALLING);
-  
+            attachInterrupt(sensorInterrupt, pulseCounter, FALLING);
+          ////////// flow 2
           if (lastPressed = lowLevel){
             digitalWrite(valve1, LOW);
           }else if (lastPressed = highLevel){
             digitalWrite(valve1, HIGH);
           }
-              // attachInterrupt(0, countP, RISING);  
+               attachInterrupt(0, countP, RISING);  
                isrCounter = EEPROMReadlong(0);
         //////////////////// machine
           pinMode(valve1, OUTPUT);
@@ -248,8 +253,15 @@ void loop()
            if ( digitalRead(valve2) == HIGH && flowIsWorking  ){
               alarm(true);
           }
-        
-           ///////////////////////////////////flow& EEPROM
+           ///////////// Tempreture
+           
+            sensors.requestTemperatures(); // Send the command to get temperature readings 
+            lcd.setCursor(12,1);    
+            lcd.print(sensors.getTempCByIndex(0));
+            if (sensors.getTempCByIndex(0) > 70){
+              alarm(true);
+            }
+               ///////////////////////////////////flow& EEPROM
            // flow 1
            if((millis() - oldTime) > 1000)    // Only process counters once per second
             {
@@ -259,12 +271,11 @@ void loop()
               if (int(flowRate) > 1){}
               lcd.setCursor(0,1);
               lcd.print(int(flowRate));   
-              lcd.print(" L");
-              lcd.print("/min");
+ 
               pulseCount2 = 0;
               
               // Enable the interrupt again now that we've finished sending output
-             attachInterrupt(sensorInterrupt, pulseCounter, FALLING);
+            attachInterrupt(sensorInterrupt, pulseCounter, FALLING);
             }
              if ( flowRate> 7){
                  flowIsWorking = true;
@@ -275,17 +286,17 @@ void loop()
            //last Pressed
            EEPROM.write(EEPROMaddress, lastPressed);
           long address=0;
-          //flow2
+          ///////////////////flow2
           currentTime = millis();
           if(currentTime >= (cloopTime + 1000))
           {
           cloopTime = currentTime; // Updates cloopTime
           unsigned long  pulseCount = isrCounter ;
-          lcd.setCursor(8,1); 
+          lcd.setCursor(3,1); 
           Serial.println(pulseCount);
           lcd.print(EEPROMReadlong(0)/59);
           lcd.print("L");
-          EEPROMWritelong(address, 0);
+          EEPROMWritelong(address, pulseCount);
           address+=5;
          } 
 
@@ -381,7 +392,7 @@ void loop()
           digitalWrite(motor, LOW);  
           } 
           /////////senario nashti event
-          else if ( digitalRead(valve2) == HIGH &&   digitalRead(lowLevel) == LOW   ){
+          else if ( digitalRead(valve2) == HIGH && digitalRead(valve1)== HIGH && digitalRead(lowLevel) == LOW   ){
              alarm(true);
           }
           if ( digitalRead(valve2) == LOW  && digitalRead(backWash1Out) == LOW  ){
@@ -450,10 +461,11 @@ switch (appMode)
            lcd.setCursor(0,0);
            lcd.println("Washing Filter 2");
            }
-      if (btn == BUTTON_SELECT_PRESSED )
+      if (btn == BUTTON_SELECT_SHORT_RELEASE )
       {
-     //lcd.print(l_hour2, DEC);
-      delay(5000);
+        digitalWrite( LCD_BACKLIGHT_PIN, HIGH );   //leave the backlight on at exit
+        delay( 5000 );
+        digitalWrite( LCD_BACKLIGHT_PIN, LOW );      
       }
       else if (btn == BUTTON_SELECT_LONG_PRESSED)
       { ///////////////////////////Test Nashti
@@ -821,7 +833,8 @@ void refreshMenuDisplay (byte refreshMode)
 }
  
  int alarm( int val){
-           if (val == 1){
+          if (val == 1){
+          
           digitalWrite(valve1, HIGH);
           digitalWrite(valve2, HIGH);  //// valve2 & 3 are together 
           digitalWrite(valve4, HIGH); 
