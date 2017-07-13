@@ -174,14 +174,14 @@ void setup() {
             flowMilliLitres   = 0;
             oldTime           = 0;
           
-            attachInterrupt(sensorInterrupt, pulseCounter, FALLING);
+           // attachInterrupt(sensorInterrupt, pulseCounter, FALLING);
   
           if (lastPressed = lowLevel){
             digitalWrite(valve1, LOW);
           }else if (lastPressed = highLevel){
             digitalWrite(valve1, HIGH);
           }
-               attachInterrupt(0, countP, RISING);  
+              // attachInterrupt(0, countP, RISING);  
                isrCounter = EEPROMReadlong(0);
         //////////////////// machine
           pinMode(valve1, OUTPUT);
@@ -285,27 +285,12 @@ void loop()
           Serial.println(pulseCount);
           lcd.print(EEPROMReadlong(0)/59);
           lcd.print("L");
-          EEPROMWritelong(address, pulseCount);
+          EEPROMWritelong(address, 0);
           address+=5;
          } 
-          while (EEPROMReadlong(0)> ( 12100000)){
-          digitalWrite(backWash1Out, HIGH);
-          digitalWrite(backWash2Out, HIGH);
-          digitalWrite(valve1, HIGH); 
-          digitalWrite(valve2, HIGH);  
-          digitalWrite(motor, HIGH);
-          lcd.clear(); 
-          lcd.setCursor(0,0);
-          lcd.print("OverFlow");
-          lcd.setCursor(0,1);
-          lcd.print("0XFFFFFFFF");
-          set_sleep_mode(SLEEP_MODE_PWR_DOWN);
-          cli();  // Disable interrupts
-          sleep_mode(); 
-          }
+
           ///////flow Finished
-         /////////// ////////////////machine
-          
+         ///////////////////////////machine        
           unsigned long currentMillis = millis(); 
           if (digitalRead(highLevel) == LOW) {
             if (state == false){
@@ -399,6 +384,22 @@ void loop()
           else if ( digitalRead(valve2) == HIGH &&   digitalRead(lowLevel) == LOW   ){
              alarm(true);
           }
+          if ( digitalRead(valve2) == LOW  && digitalRead(backWash1Out) == LOW  ){
+              digitalWrite(valve2, HIGH);
+              digitalWrite(motor, HIGH);
+          }
+         if ( digitalRead(motor) == LOW  && digitalRead(backWash1Out) == LOW  ){
+              digitalWrite(valve2, HIGH);
+              digitalWrite(motor, HIGH);
+          }
+         if ( digitalRead(valve2) == LOW  && digitalRead(backWash2Out) == LOW  ){
+              digitalWrite(valve2, HIGH);
+              digitalWrite(motor, HIGH);
+          }
+         if ( digitalRead(motor) == LOW  && digitalRead(backWash2Out) == LOW  ){
+              digitalWrite(valve2, HIGH);
+              digitalWrite(motor, HIGH);
+          }
  //////////////////////////////////////////////////////////////////////////////////////////////////
   btn = getButton();
 
@@ -442,13 +443,13 @@ switch (appMode)
          }
  
          
-         if( digitalRead(backWash1Out) == LOW){
+         else if( digitalRead(backWash1Out) == LOW){
            lcd.setCursor(0,0);
-           lcd.println("Wash Filter1");
+           lcd.println("Washing Filter 1");
          }else if( digitalRead(backWash2Out) == LOW){
            lcd.setCursor(0,0);
-           lcd.println("Wash Filter2");
-         }
+           lcd.println("Washing Filter 2");
+           }
       if (btn == BUTTON_SELECT_PRESSED )
       {
      //lcd.print(l_hour2, DEC);
