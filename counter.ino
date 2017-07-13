@@ -71,13 +71,11 @@ long EEPROMReadlong(long address)
       }
  
 unsigned int l_hour;  
-unsigned char flowsensor = 2; // Sensor Input
-unsigned long currentTime;
+ unsigned long currentTime;
 unsigned long cloopTime;
 volatile unsigned long isrCounter;
-unsigned long pulseCount;
-unsigned long stopCount = 100000;
- #include <avr/sleep.h>
+unsigned long pulseCount = 0;
+  #include <avr/sleep.h>
 void countP() 
 {
 isrCounter++;
@@ -254,67 +252,49 @@ void loop()
            ///////////////////////////////////flow& EEPROM
            // flow 1
            if((millis() - oldTime) > 1000)    // Only process counters once per second
-  {
-    detachInterrupt(sensorInterrupt);
-
-    flowRate = ((1000.0 / (millis() - oldTime)) * pulseCount2) / calibrationFactor;
- 
-    oldTime = millis();
-    flowMilliLitres = (flowRate *60)/7.5;
-     unsigned int frac;
-    
-    Serial.print(int(flowRate));  // Print the integer part of the variable
-    Serial.print(".");             // Print the decimal point
-    frac = (flowRate - int(flowRate)) * 10;
-    Serial.print(frac, DEC) ;      // Print the fractional part of the variable
-    Serial.print(" ");             // Output separator
-    Serial.print(flowMilliLitres);
-    if (flowMilliLitres > 10){
-      flowIsWorking = true;
-    }
-     lcd.setCursor(0, 0);
-    lcd.print("                ");
-    lcd.setCursor(0, 0);
-    lcd.print("Flow: ");
-    if(int(flowRate) < 10)
-    {
-      lcd.print(" ");
-    }
-    lcd.print((int)flowRate);   // Print the integer part of the variable
-    lcd.print('.');             // Print the decimal point
-    lcd.print(frac, DEC) ;      // Print the fractional part of the variable
-    lcd.print(" L");
-    lcd.print("/min");
- 
- 
-     pulseCount2 = 0;
-    
-    // Enable the interrupt again now that we've finished sending output
-    attachInterrupt(sensorInterrupt, pulseCounter, FALLING);
-  }
+            {
+              detachInterrupt(sensorInterrupt);
+              flowRate = ((1000.0 / (millis() - oldTime)) * pulseCount2) / calibrationFactor;
+              oldTime = millis();       
+              if (int(flowRate) > 1){}
+              lcd.setCursor(0,1);
+              lcd.print(int(flowRate));   
+              lcd.print(" L");
+              lcd.print("/min");
+              pulseCount2 = 0;
+              
+              // Enable the interrupt again now that we've finished sending output
+             attachInterrupt(sensorInterrupt, pulseCounter, FALLING);
+            }
+             if ( flowRate> 7){
+                 flowIsWorking = true;
+              }else{
+                flowIsWorking = false;
+              }
+            flowRate  = 0;
            //last Pressed
            EEPROM.write(EEPROMaddress, lastPressed);
           long address=0;
+          //flow2
           currentTime = millis();
-          // Every second, calculate and print litres/hour
           if(currentTime >= (cloopTime + 1000))
           {
           cloopTime = currentTime; // Updates cloopTime
           unsigned long  pulseCount = isrCounter ;
-           lcd.setCursor(0,1); 
-          lcd.print(EEPROMReadlong(0)/590);
+          lcd.setCursor(8,1); 
+          Serial.println(pulseCount);
+          lcd.print(EEPROMReadlong(0)/59);
           lcd.print("L");
           EEPROMWritelong(address, pulseCount);
           address+=5;
-          // flow is working
- 
-          // if liters > 100000 liters, sleep forever
+         } 
           while (EEPROMReadlong(0)> ( 12100000)){
           digitalWrite(backWash1Out, HIGH);
           digitalWrite(backWash2Out, HIGH);
           digitalWrite(valve1, HIGH); 
           digitalWrite(valve2, HIGH);  
-          digitalWrite(motor, HIGH); 
+          digitalWrite(motor, HIGH);
+          lcd.clear(); 
           lcd.setCursor(0,0);
           lcd.print("OverFlow");
           lcd.setCursor(0,1);
@@ -323,12 +303,10 @@ void loop()
           cli();  // Disable interrupts
           sleep_mode(); 
           }
-          
-          } 
-          ////////////////machine
+          ///////flow Finished
+         /////////// ////////////////machine
           
           unsigned long currentMillis = millis(); 
-           
           if (digitalRead(highLevel) == LOW) {
             if (state == false){
                 digitalWrite(valve1, HIGH);
@@ -440,26 +418,36 @@ switch (appMode)
   {
     case APP_NORMAL_MODE :
      
-         if(digitalRead(valve1)==LOW){
+         if(digitalRead(valve1)==LOW && digitalRead(highPressureStorage) == HIGH){
            lcd.setCursor(0,0);
-           lcd.println("First Storage ");
-           lcd.setCursor(0,1);
-           lcd.println("Is filling"); 
-         }else if (digitalRead(valve2)==LOW || digitalRead(motor)==LOW){
+           lcd.println("[filling][Full]");
+         }else if(digitalRead(valve1)==LOW && digitalRead(highPressureStorage) == LOW){
            lcd.setCursor(0,0);
-           lcd.println("Transfer Water ->");
-           lcd.setCursor(1,1);
+           lcd.println("[filling][Empty]");
+         }else if(digitalRead(valve1)==HIGH && digitalRead(highPressureStorage) == HIGH){
+           lcd.setCursor(0,0);
+           lcd.println("[Full]  [Full]");
+         }else if ( digitalRead(air)==LOW && digitalRead(highPressureStorage) == HIGH ){
+           lcd.setCursor(0,0);
+           lcd.println("[Air+DC] [Full]");
+         }else if ( digitalRead(air)==LOW && digitalRead(highPressureStorage) == LOW ){
+           lcd.setCursor(0,0);
+           lcd.println("[Air+DC] [Empty]");
+         }else if (digitalRead(valve2)==LOW && digitalRead(highPressureStorage) == HIGH){
+           lcd.setCursor(0,0);
+           lcd.println("[Pure]>>>[Full]");
+         }else if (digitalRead(valve2)==LOW && digitalRead(highPressureStorage) == LOW){
+           lcd.setCursor(0,0);
+           lcd.println("[Pure]>>>[Empty]");
+         }
  
-         }else if( digitalRead(backWash1Out) == LOW){
-            lcd.setCursor(0,0);
-           lcd.println("Back Wash 1");
-           lcd.setCursor(0,1);
-           lcd.println("Is Running");
+         
+         if( digitalRead(backWash1Out) == LOW){
+           lcd.setCursor(0,0);
+           lcd.println("Wash Filter1");
          }else if( digitalRead(backWash2Out) == LOW){
-            lcd.setCursor(0,0);
-           lcd.println("Back Wash 2");
-           lcd.setCursor(0,1);
-           lcd.println("Is Running");
+           lcd.setCursor(0,0);
+           lcd.println("Wash Filter2");
          }
       if (btn == BUTTON_SELECT_PRESSED )
       {
@@ -551,9 +539,7 @@ switch (appMode)
        
             lcd.clear();
             lcd.setCursor(0,0);
-            lcd.print("Water out");
-            lcd.setCursor(0,1); 
-            lcd.print(">>>>>>>>>>>>>>>>");
+            lcd.print("[]>>>>>>>>[]");
             digitalWrite(valve4, LOW); 
       }else if (btn == BUTTON_RIGHT_LONG_RELEASE ){
             lcd.clear();
