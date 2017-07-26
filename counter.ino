@@ -1,92 +1,17 @@
- 
- 
 #include <LiquidCrystal.h>
-#define LCD_BACKLIGHT_PIN         10  // D10 controls LCD backlight
-#define BUTTONHYSTERESIS         10  // hysteresis for valid button sensing window
-
 #include "LcdKeypad.h"
 #include "MenuData.h"
 #include "Config.h"
 #include <TimerOne.h>
-#include <OneWire.h> 
-      
-         #define ALARM_PIN 22
-          bool val  ;
-          bool BizzarStop;
-          bool flowIsWorking;
-          bool pauseStateBtn = false;
-          bool currentStateBtn = true;
-          ///////////// 
-          int buttonPressTime2 = 250;   // Number of milliseconds to hold outputs o
- ///////////////////Flower ///EEPROM
- // flow1
-byte sensorInterrupt = 1;  // 0 = pin 2; 1 = pin 3
-float calibrationFactor = 4.5;
-volatile byte pulseCount2;  
-float flowRate;
-unsigned int flowMilliLitres;
-unsigned long oldTime;
-
- //last pressed Btn
- uint8_t  EEPROMaddress = 50;
- int lastPressed;
-//Needed to access the eeprom read write functions
-#include <EEPROM.h> 
-#include <avr/sleep.h>
-#include <avr/interrupt.h>
-long number2 = 987654321;
-
-//This function will write a 4 byte (32bit) long to the eeprom at
-//the specified address to address + 3.
-void EEPROMWritelong(int address, long value)
-      {
-      //Decomposition from a long to 4 bytes by using bitshift.
-      //One = Most significant -> Four = Least significant byte
-      byte four = (value & 0xFF);
-      byte three = ((value >> 8) & 0xFF);
-      byte two = ((value >> 16) & 0xFF);
-      byte one = ((value >> 24) & 0xFF);
-      byte zero = ((value >> 32) & 0xFF);
-
-      //Write the 4 bytes into the eeprom memory.
-      EEPROM.write(address, four);
-      EEPROM.write(address + 1, three);
-      EEPROM.write(address + 2, two);
-      EEPROM.write(address + 3, one);
-      EEPROM.write(address + 4, zero);
-  
-
-      }
-
-//This function will return a 4 byte (32bit) long from the eeprom
-//at the specified address to address + 3.
-long EEPROMReadlong(long address)
-      {
-      //Read the 4 bytes from the eeprom memory.
-      long four = EEPROM.read(address);
-      long three = EEPROM.read(address + 1);
-      long two = EEPROM.read(address + 2);
-      long one = EEPROM.read(address + 3);
-      long zero = EEPROM.read(address + 4);
-
-      //Return the recomposed long by using bitshift.
-      return ((four << 0) & 0xFF) + ((three << 8) & 0xFFFF) + ((two << 16) & 0xFFFFFF) + ((one << 24) & 0xFFFFFFFF)+ ((zero << 32) & 0xFFFFFFFFFF);
-      }
+#define ALARM_PIN 48 
+//////////////////////////
+            ///////////////////////////// temp
+          /// First we include the libraries
  
-unsigned int l_hour;  
- unsigned long currentTime;
-unsigned long cloopTime;
-volatile unsigned long isrCounter;
-unsigned long pulseCount = 0;
-  #include <avr/sleep.h>
-void countP() 
-{
-isrCounter++;
-}
-          
-          
- ////////////////////////// 
-        
+         
+
+LiquidCrystal lcd(8, 9, 4, 5, 6, 7);
+          int lastPressed;
           const byte lowLevel = 42;
           const byte highLevel = 43;
           const byte highPressureStorage = 44;
@@ -99,7 +24,7 @@ isrCounter++;
           int valve2 = 35; 
           int backWash1Out = 36;          
           int backWash2Out = 37;
-          int valve4= 38;
+          int valve4= 30;
           
           const byte LED=13; // LED (built-in on Uno)
           unsigned long buttonPushedMillis; // when button was released
@@ -115,6 +40,9 @@ isrCounter++;
           unsigned long turnOffDelay2 = 10000; // turn off LED after this time
           unsigned long turnOnDelay3 = 10000; // wait to turn on LED
           unsigned long turnOffDelay3 = 10000; // turn off LED after this time
+          unsigned long turnOffDelay4 = 10000; // turn off LED after this time
+
+          
           unsigned long turnOnDelayBizz = 10000; // wait to turn on LED
           bool ledReady = false; // flag for when button is let go
           bool ledState = false; // for LED is on or not.
@@ -122,19 +50,14 @@ isrCounter++;
           bool ledState2 = false;  
           bool ledReady3 = false;  
           bool ledState3 = false;  
-           ///////////////////////////// temp
-          // First we include the libraries
           
-          #include <DallasTemperature.h>
-          // Data wire is plugged into pin 2 on the Arduino 
-          #define ONE_WIRE_BUS 46 
-          // Setup a oneWire instance to communicate with any OneWire devices  
-          // (not just Maxim/Dallas temperature ICs) 
-          OneWire oneWire(ONE_WIRE_BUS); 
-          // Pass our oneWire reference to Dallas Temperature. 
-          DallasTemperature sensors(&oneWire);
-         
- enum AppModeValues
+          bool val  ;
+        bool state = false;
+ 
+
+
+          
+enum AppModeValues
 {
   APP_NORMAL_MODE,
   APP_TIMER_RUNNING,
@@ -143,8 +66,7 @@ isrCounter++;
   APP_PROCESS_MENU_CMD,
   APP_MENU_MODE_END
 };
- 
- 
+
 byte appMode = APP_NORMAL_MODE;
 
 char strbuf[LCD_COLS + 1]; // one line of lcd display
@@ -157,38 +79,16 @@ byte btn;
 Config currentConfig;
 
 // initialize the library with the numbers of the interface pins
-LiquidCrystal lcd(8, 9, 4, 5, 6, 7);
+ 
 
 MenuManager Menu1(cd_timer_menu_Root, menuCount(cd_timer_menu_Root));
 
 void printTimerValue(byte timerIdx, byte showTimerName = false);
 
-bool state = false;
+
 void setup() {
-          //lcd BackLight
-           digitalWrite( LCD_BACKLIGHT_PIN, LOW );  //backlight control pin D3 is high (on)
-           pinMode( LCD_BACKLIGHT_PIN, OUTPUT );     //D3 is an output
-          ////////////////////// temp
-          // start serial port 
-          sensors.begin();            
-            //////////////// flower && EPROM
-           // flow1
-           
-            pulseCount2        = 0;
-            flowRate          = 0.0;
-            flowMilliLitres   = 0;
-            oldTime           = 0;
-          
-            attachInterrupt(sensorInterrupt, pulseCounter, FALLING);
-          ////////// flow 2
-          if (lastPressed = lowLevel){
-            digitalWrite(valve1, LOW);
-          }else if (lastPressed = highLevel){
-            digitalWrite(valve1, HIGH);
-          }
-               attachInterrupt(0, countP, RISING);  
-               isrCounter = EEPROMReadlong(0);
-        //////////////////// machine
+
+             //////////////////// machine
           pinMode(valve1, OUTPUT);
           pinMode(air, OUTPUT);
           pinMode(DC, OUTPUT);
@@ -217,91 +117,37 @@ void setup() {
           pinMode(lowLevel, INPUT_PULLUP);
           pinMode(LED, OUTPUT);
           digitalWrite(LED, LOW);
-        
-/////////////////////////////////////////////////////////////////////////////////////////
-   
+          //////////////////////////////////
   pinMode(ALARM_PIN, OUTPUT);
   digitalWrite(ALARM_PIN, LOW);
-  pinMode(highLevel, INPUT_PULLUP);
   
   backLightOn();
   // set up the LCD's number of columns and rows:
   lcd.begin(LCD_COLS, LCD_ROWS);
   currentConfig.load();
-//   initTimers();
 
-  //printTimerValue(0, true);
+  initTimers();
+
+  printTimerValue(0, true);
 
   // Use soft PWM for backlight, as hardware PWM must be avoided for some LCD shields.
- Timer1.initialize();
- Timer1.attachInterrupt(lcdBacklightISR, 500);
- 
+  Timer1.initialize();
+  Timer1.attachInterrupt(lcdBacklightISR, 500);
   setBacklightBrightness(currentConfig.displayBrightness);
   
- Serial.begin(9600);
- }
- 
+  //Serial.begin(9600);
+}
 
- 
+
 void loop()
 {
-
+ 
+  /////////////////////
   turnOffDelay =  currentConfig.alarmDuration * 1000 ;
-  turnOffDelay2 =  currentConfig.BV1Duration * 1000 ;
-  turnOffDelay3 =  currentConfig.BV2Duration * 1000 ;
- 
-           if ( digitalRead(valve2) == HIGH && flowIsWorking  ){
-              alarm(true);
-          }
-           ///////////// Tempreture
-           
-            sensors.requestTemperatures(); // Send the command to get temperature readings 
-            lcd.setCursor(12,1);    
-            lcd.print(sensors.getTempCByIndex(0));
-            if (sensors.getTempCByIndex(0) > 70){
-              alarm(true);
-            }
-               ///////////////////////////////////flow& EEPROM
-           // flow 1
-           if((millis() - oldTime) > 1000)    // Only process counters once per second
-            {
-              detachInterrupt(sensorInterrupt);
-              flowRate = ((1000.0 / (millis() - oldTime)) * pulseCount2) / calibrationFactor;
-              oldTime = millis();       
-              if (int(flowRate) > 1){}
-              lcd.setCursor(0,1);
-              lcd.print(int(flowRate));   
- 
-              pulseCount2 = 0;
-              
-              // Enable the interrupt again now that we've finished sending output
-            attachInterrupt(sensorInterrupt, pulseCounter, FALLING);
-            }
-             if ( flowRate> 7){
-                 flowIsWorking = true;
-              }else{
-                flowIsWorking = false;
-              }
-            flowRate  = 0;
-           //last Pressed
-           EEPROM.write(EEPROMaddress, lastPressed);
-          long address=0;
-          ///////////////////flow2
-          currentTime = millis();
-          if(currentTime >= (cloopTime + 1000))
-          {
-          cloopTime = currentTime; // Updates cloopTime
-          unsigned long  pulseCount = isrCounter ;
-          lcd.setCursor(3,1); 
-          Serial.println(pulseCount);
-          lcd.print(EEPROMReadlong(0)/59);
-          lcd.print("L");
-          EEPROMWritelong(address, pulseCount);
-          address+=5;
-         } 
-
-          ///////flow Finished
-         ///////////////////////////machine        
+    turnOffDelay2 =  currentConfig.alarmDuration2 * 1000 ;
+      turnOffDelay3 =  currentConfig.alarmDuration3 * 1000 ;
+      turnOffDelay4 =  currentConfig.alarmDuration4 * 1000 ;
+///////////////////////////machine        
           unsigned long currentMillis = millis(); 
           if (digitalRead(highLevel) == LOW) {
             if (state == false){
@@ -392,9 +238,7 @@ void loop()
           digitalWrite(motor, LOW);  
           } 
           /////////senario nashti event
-          else if ( digitalRead(valve2) == HIGH && digitalRead(valve1)== HIGH && digitalRead(lowLevel) == LOW   ){
-             alarm(true);
-          }
+ 
           if ( digitalRead(valve2) == LOW  && digitalRead(backWash1Out) == LOW  ){
               digitalWrite(valve2, HIGH);
               digitalWrite(motor, HIGH);
@@ -411,7 +255,9 @@ void loop()
               digitalWrite(valve2, HIGH);
               digitalWrite(motor, HIGH);
           }
- //////////////////////////////////////////////////////////////////////////////////////////////////
+ 
+
+  /////////////////////
   btn = getButton();
 
   if (btn && currentConfig.buttonBeep && appMode != APP_ALARM)
@@ -426,10 +272,10 @@ void loop()
     }
   }
   
-switch (appMode)
+  switch (appMode)
   {
     case APP_NORMAL_MODE :
-     
+
          if(digitalRead(valve1)==LOW && digitalRead(highPressureStorage) == HIGH){
            lcd.setCursor(0,0);
            lcd.println("[filling][Full]");
@@ -451,66 +297,59 @@ switch (appMode)
          }else if (digitalRead(valve2)==LOW && digitalRead(highPressureStorage) == LOW){
            lcd.setCursor(0,0);
            lcd.println("[Pure]>>>[Empty]");
-         }
- 
-         
-         else if( digitalRead(backWash1Out) == LOW){
+         }  else if( digitalRead(backWash1Out) == LOW){
            lcd.setCursor(0,0);
            lcd.println("Washing Filter 1");
          }else if( digitalRead(backWash2Out) == LOW){
            lcd.setCursor(0,0);
            lcd.println("Washing Filter 2");
-           }
-      if (btn == BUTTON_SELECT_SHORT_RELEASE )
+           } 
+      if (btn == BUTTON_SELECT_SHORT_RELEASE)
       {
-        digitalWrite( LCD_BACKLIGHT_PIN, HIGH );   //leave the backlight on at exit
-        delay( 5000 );
-        digitalWrite( LCD_BACKLIGHT_PIN, LOW );      
+            backLightOn();
+            lcd.setCursor(0,1); 
+            lcd.print("1 Glass Water >>>>");
+            digitalWrite(valve4, LOW);
+            delay( turnOffDelay4);
+            
+            digitalWrite(valve4, HIGH);
+            delay(1000);
+            backLightOff();
+            lcd.clear();
       }
       else if (btn == BUTTON_SELECT_LONG_PRESSED)
-      { ///////////////////////////Test Nashti
-     //   timerCurrentValue[currentTimerIdx] = currentConfig.getTimerReloadValue(currentTimerIdx);
-      //  printTimerValue(currentTimerIdx);
-      //  lcd.println(pulseCount);
-          digitalWrite(backWash1Out, HIGH);
-          digitalWrite(backWash2Out, HIGH);
-          digitalWrite(valve1, HIGH);
-           
-          digitalWrite(valve2, LOW);  
-          digitalWrite(motor, LOW); 
-          delay(5000);
-          digitalWrite(backWash1Out, HIGH);
-          digitalWrite(backWash2Out, HIGH);
-          digitalWrite(valve1, HIGH); 
-          digitalWrite(valve2, LOW);  
-          digitalWrite(motor, LOW); 
+      {
+            backLightOn();
+            lcd.setCursor(0,1); 
+            lcd.print("Water Out >>>>>>>>>");
+            digitalWrite(valve4, LOW);  
+        //timerCurrentValue[currentTimerIdx] = currentConfig.getTimerReloadValue(currentTimerIdx);
+        //printTimerValue(currentTimerIdx);
+      }else if (btn == BUTTON_SELECT_LONG_RELEASE ){
+            digitalWrite(valve4, HIGH); 
+            delay(1000);
+            backLightOff();
+            lcd.clear();
       }
       else if (btn == BUTTON_UP_LONG_PRESSED)
       {
-         appMode = APP_MENU_MODE;
-         refreshMenuDisplay(REFRESH_DESCEND);
-
-        
+        appMode = APP_MENU_MODE;
+        refreshMenuDisplay(REFRESH_DESCEND);
+      }  else if (btn == BUTTON_UP_PRESSED)
+      {
+        backLightOn();
+        //currentTimerIdx = --currentTimerIdx < 0 ? 0 : currentTimerIdx;
+       // printTimerValue(currentTimerIdx, true);
       }
-
       else if (btn == BUTTON_UP_SHORT_RELEASE)
       {
-        currentTimerIdx = --currentTimerIdx < 0 ? 0 : currentTimerIdx;
+        backLightOff();
+        //currentTimerIdx = --currentTimerIdx < 0 ? 0 : currentTimerIdx;
        // printTimerValue(currentTimerIdx, true);
- 
       }
-      else if (btn == BUTTON_DOWN_SHORT_RELEASE)
-      {
-        currentTimerIdx = ++currentTimerIdx > 2 ? 2 : currentTimerIdx;
-        //printTimerValue(currentTimerIdx, true);
-        //while(btn != BUTTON_UP_SHORT_RELEASE){ 
-        // lcd.clear();
-  
-      }
-       else if (btn == BUTTON_DOWN_LONG_RELEASE )
+     else if (btn == BUTTON_DOWN_LONG_RELEASE )
       {  //////////////////// pause 
-           
-          
+          backLightOn(); 
           digitalWrite(backWash1Out, HIGH);
           digitalWrite(backWash2Out, HIGH);
           digitalWrite(valve1, HIGH); 
@@ -523,54 +362,61 @@ switch (appMode)
           lcd.print("Press Reset");
           if(btn = BUTTON_UP_PRESSED ) 
           delay(15000);
+          backLightOff();
        }
-       else if (btn == BUTTON_LEFT_PRESSED )
+      else if (btn == BUTTON_DOWN_SHORT_RELEASE)
       {
-        lcd.clear();
-        sensors.requestTemperatures(); // Send the command to get temperature readings 
-        lcd.clear(); 
-        lcd.setCursor(0,0);           
-        lcd.print("Tempreture = ");
-        lcd.setCursor(0,1);    
-        lcd.print(sensors.getTempCByIndex(0));
-        lcd.setCursor(9,1);             
-        lcd.print("deg C"); 
-        delay(5000); 
-        lcd.clear(); 
-      }else if (btn == BUTTON_RIGHT_SHORT_RELEASE ){
-             
-            lcd.clear();
-            lcd.setCursor(0,0);
-            lcd.print("1 glass Water");
-            lcd.setCursor(0,1); 
-            lcd.print(">>>>");
-            digitalWrite(valve4, LOW);
-            delay(5000);
-            digitalWrite(valve4, HIGH);
-            lcd.clear();
-      } else if (btn == BUTTON_RIGHT_LONG_PRESSED ){
-       
-            lcd.clear();
-            lcd.setCursor(0,0);
-            lcd.print("[]>>>>>>>>[]");
-            digitalWrite(valve4, LOW); 
-      }else if (btn == BUTTON_RIGHT_LONG_RELEASE ){
-            lcd.clear();
-            digitalWrite(valve4, HIGH); 
+        backLightOn();
+        //currentTimerIdx = ++currentTimerIdx > 2 ? 2 : currentTimerIdx;
+        //printTimerValue(currentTimerIdx, true);
+      }else if (btn == BUTTON_LEFT_SHORT_RELEASE )
+      {
+         backLightOff();
+      } else if (btn == BUTTON_RIGHT_SHORT_RELEASE ){
+            backLightOn();
+            delay(2000);
+            backLightOff();
+
       }
 
-     break;
+
+            
+      break;
     case APP_TIMER_RUNNING :
       if (btn == BUTTON_SELECT_SHORT_RELEASE || btn == BUTTON_SELECT_LONG_RELEASE)
       {
-         lcd.println("APP_TIMER_RUNNING");
+        appMode = APP_NORMAL_MODE;
       }
- 
+      else
+      {
+        short msDelta = (millis() - lastMilliSecondTimerValue);
+
+        if (msDelta > 0)
+        {
+          lastMilliSecondTimerValue = millis();
+          timerFineGrainedCounter[currentTimerIdx] += msDelta;
+          
+          if (timerFineGrainedCounter[currentTimerIdx] >= 1000)
+          {
+            timerFineGrainedCounter[currentTimerIdx] -= 1000;                     
+            timerCurrentValue[currentTimerIdx]-=1;
+            //printTimerValue(currentTimerIdx);
+  
+            if (timerCurrentValue[currentTimerIdx] <= 0)
+            {
+              timerCurrentValue[currentTimerIdx] = currentConfig.getTimerReloadValue(currentTimerIdx);
+              appMode = APP_ALARM;
+              alarmStartTime = millis();
+              digitalWrite(ALARM_PIN, HIGH);
+            }
+          }
+        }
+      }
       if (appMode == APP_NORMAL_MODE || appMode == APP_ALARM)
       {
-        printTimerValue(currentTimerIdx);
-        lcd.setCursor(8, 0);
-        lcd.print("APP_TIMER_RUNNING");
+       // printTimerValue(currentTimerIdx);
+       // lcd.setCursor(8, 0);
+       // lcd.print("       ");
       }
       break;
     case APP_ALARM:
@@ -583,7 +429,7 @@ switch (appMode)
           appMode = APP_NORMAL_MODE;
         }
       }
-      else if (millis() - alarmStartTime >= turnOffDelay)
+      else if (millis() - alarmStartTime >= (short)currentConfig.alarmDuration * 1000)
       {
         appMode = APP_NORMAL_MODE;
       }
@@ -600,7 +446,7 @@ switch (appMode)
       if (menuMode == MENU_EXIT)
       {
         // Tidy up display
-        printTimerValue(currentTimerIdx, true);
+        //printTimerValue(currentTimerIdx, true);
         appMode = APP_MENU_MODE_END;
       }
       else if (menuMode == MENU_INVOKE_ITEM)
@@ -642,27 +488,40 @@ switch (appMode)
   }
 }
 
- 
 
+//----------------------------------------------------------------------
 void printTimerValue(byte timerIdx, byte showTimerName)
 {
   if (showTimerName)
   {
-    lcd.clear();
-    lcd.setCursor(0,0);
-    char intbuf[2];
+   // lcd.clear();
+   // lcd.setCursor(0,0);
+   // char intbuf[2];
 
-    inttostr(intbuf, timerIdx + 1);
+   // inttostr(intbuf, timerIdx + 1);
     
-    fmt(strbuf, 2, "Timer ", intbuf);
-    lcd.print(strbuf);
+   // fmt(strbuf, 2, "Timer ", intbuf);
+   // lcd.print(strbuf);
   }
 
-  lcd.setCursor(0,1);
-  toTimeStr(strbuf, timerCurrentValue[timerIdx]);
-  lcd.print(strbuf);
+  //lcd.setCursor(0,1);
+  //toTimeStr(strbuf, timerCurrentValue[timerIdx]);
+ // lcd.print(strbuf);
 }
- 
+
+
+void initTimers()
+{
+  timerCurrentValue[0] = currentConfig.timer1ReloadValue;
+  timerCurrentValue[1] = currentConfig.timer2ReloadValue;
+  timerCurrentValue[2] = currentConfig.timer3ReloadValue;
+
+  timerFineGrainedCounter[0] = 0;
+  timerFineGrainedCounter[1] = 0;
+  timerFineGrainedCounter[2] = 0;
+}
+
+
 //----------------------------------------------------------------------
 // Addition or removal of menu items in MenuData.h will require this method
 // to be modified accordingly. 
@@ -678,72 +537,211 @@ byte processMenuCommand(byte cmdId)
 
   switch (cmdId)
   {
- 
+    // Process menu commands here:
+    case mnuCmdT1Hours :
+      configChanged = true;
+      if (btn == BUTTON_UP_PRESSED || btn == BUTTON_UP_LONG_PRESSED)
+      {
+        currentConfig.timer1ReloadValue = addToTime(3600, currentConfig.timer1ReloadValue);
+      }
+      else if (btn == BUTTON_DOWN_PRESSED || btn == BUTTON_DOWN_LONG_PRESSED)
+      {
+        currentConfig.timer1ReloadValue = addToTime(-3600, currentConfig.timer1ReloadValue);
+      }
+      else
+      {
+        configChanged = false;
+      }
+      break;
+    case mnuCmdT1Mins :
+      configChanged = true;
+      if (btn == BUTTON_UP_PRESSED || btn == BUTTON_UP_LONG_PRESSED)
+      {
+        currentConfig.timer1ReloadValue = addToTime(60, currentConfig.timer1ReloadValue);
+      }
+      else if (btn == BUTTON_DOWN_PRESSED || btn == BUTTON_DOWN_LONG_PRESSED)
+      {
+        currentConfig.timer1ReloadValue = addToTime(-60, currentConfig.timer1ReloadValue);
+      }
+      else
+      {
+        configChanged = false;
+      }
+      break;
+    case mnuCmdT1Secs :
+      configChanged = true;
+      if (btn == BUTTON_UP_PRESSED || btn == BUTTON_UP_LONG_PRESSED)
+      {
+        currentConfig.timer1ReloadValue = addToTime(1, currentConfig.timer1ReloadValue);
+      }
+      else if (btn == BUTTON_DOWN_PRESSED || btn == BUTTON_DOWN_LONG_PRESSED)
+      {
+        currentConfig.timer1ReloadValue = addToTime(-1, currentConfig.timer1ReloadValue);
+      }
+      else
+      {
+        configChanged = false;
+      }
+      break;
+    case mnuCmdT2Hours :
+      configChanged = true;
+      if (btn == BUTTON_UP_PRESSED || btn == BUTTON_UP_LONG_PRESSED)
+      {
+        currentConfig.timer2ReloadValue = addToTime(3600, currentConfig.timer2ReloadValue);
+      }
+      else if (btn == BUTTON_DOWN_PRESSED || btn == BUTTON_DOWN_LONG_PRESSED)
+      {
+        currentConfig.timer2ReloadValue = addToTime(-3600, currentConfig.timer2ReloadValue);
+      }
+      else
+      {
+        configChanged = false;
+      }
+      break;
+    case mnuCmdT2Mins :
+      configChanged = true;
+      if (btn == BUTTON_UP_PRESSED || btn == BUTTON_UP_LONG_PRESSED)
+      {
+        currentConfig.timer2ReloadValue = addToTime(60, currentConfig.timer2ReloadValue);
+      }
+      else if (btn == BUTTON_DOWN_PRESSED || btn == BUTTON_DOWN_LONG_PRESSED)
+      {
+        currentConfig.timer2ReloadValue = addToTime(-60, currentConfig.timer2ReloadValue);
+      }
+      else
+      {
+        configChanged = false;
+      }
+      break;
+    case mnuCmdT2Secs :
+      configChanged = true;
+      if (btn == BUTTON_UP_PRESSED || btn == BUTTON_UP_LONG_PRESSED)
+      {
+        currentConfig.timer2ReloadValue = addToTime(1, currentConfig.timer2ReloadValue);
+      }
+      else if (btn == BUTTON_DOWN_PRESSED || btn == BUTTON_DOWN_LONG_PRESSED)
+      {
+        currentConfig.timer2ReloadValue = addToTime(-1, currentConfig.timer2ReloadValue);
+      }
+      else
+      {
+        configChanged = false;
+      }
+      break;
+    case mnuCmdT3Hours :
+      configChanged = true;
+      if (btn == BUTTON_UP_PRESSED || btn == BUTTON_UP_LONG_PRESSED)
+      {
+        currentConfig.timer3ReloadValue = addToTime(3600, currentConfig.timer3ReloadValue);
+      }
+      else if (btn == BUTTON_DOWN_PRESSED || btn == BUTTON_DOWN_LONG_PRESSED)
+      {
+        currentConfig.timer3ReloadValue = addToTime(-3600, currentConfig.timer3ReloadValue);
+      }
+      else
+      {
+        configChanged = false;
+      }
+      break;
+    case mnuCmdT3Mins :
+      configChanged = true;
+      if (btn == BUTTON_UP_PRESSED || btn == BUTTON_UP_LONG_PRESSED)
+      {
+        currentConfig.timer3ReloadValue = addToTime(60, currentConfig.timer3ReloadValue);
+      }
+      else if (btn == BUTTON_DOWN_PRESSED || btn == BUTTON_DOWN_LONG_PRESSED)
+      {
+        currentConfig.timer3ReloadValue = addToTime(-60, currentConfig.timer3ReloadValue);
+      }
+      else
+      {
+        configChanged = false;
+      }
+      break;
+    case mnuCmdT3Secs :
+      configChanged = true;
+      if (btn == BUTTON_UP_PRESSED || btn == BUTTON_UP_LONG_PRESSED)
+      {
+        currentConfig.timer3ReloadValue = addToTime(1, currentConfig.timer3ReloadValue);
+      }
+      else if (btn == BUTTON_DOWN_PRESSED || btn == BUTTON_DOWN_LONG_PRESSED)
+      {
+        currentConfig.timer3ReloadValue = addToTime(-1, currentConfig.timer3ReloadValue);
+      }
+      else
+      {
+        configChanged = false;
+      }
+      break;
+      ////////////////////////////////
     case mnuCmdAlarmDuration:
       configChanged = true;
       if (btn == BUTTON_UP_PRESSED || btn == BUTTON_UP_LONG_PRESSED)
       {
-        currentConfig.alarmDuration = ++currentConfig.alarmDuration > 500 ? 500 : currentConfig.alarmDuration;
-     //   turnOffDelay =  currentConfig.alarmDuration *1000     ;
+        
+        currentConfig.alarmDuration =  ++currentConfig.alarmDuration   > 500 ? 500 : (currentConfig.alarmDuration );
         
       }
       else if (btn == BUTTON_DOWN_PRESSED || btn == BUTTON_DOWN_LONG_PRESSED)
       {
-        currentConfig.alarmDuration = --currentConfig.alarmDuration < 1 ? 1 : currentConfig.alarmDuration;
-       // turnOffDelay = currentConfig.alarmDuration * 1000 ;
+        currentConfig.alarmDuration =  --currentConfig.alarmDuration   < 1 ? 1 : (currentConfig.alarmDuration );
+         
+
       }
       else
       {
         configChanged = false;
       }
       break;
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
- 
-    case BV1:
+      ////////////////////
+      case mnuCmdAlarmDuration2:
       configChanged = true;
       if (btn == BUTTON_UP_PRESSED || btn == BUTTON_UP_LONG_PRESSED)
       {
-        currentConfig.BV1Duration =  (++currentConfig.BV1Duration) >500 ? 500: currentConfig.BV1Duration;
-     //   turnOffDelay2 =  currentConfig.BV1Duration * 1000 ;
+        currentConfig.alarmDuration2 = ++currentConfig.alarmDuration2 > 500 ? 500 : currentConfig.alarmDuration2;
       }
       else if (btn == BUTTON_DOWN_PRESSED || btn == BUTTON_DOWN_LONG_PRESSED)
       {
-        currentConfig.BV1Duration = --currentConfig.BV1Duration < 1  ? 1  : currentConfig.BV1Duration;
-      //  turnOffDelay2 =  currentConfig.BV1Duration * 1000 ;
-
-       }
+        currentConfig.alarmDuration2 = --currentConfig.alarmDuration2 < 1 ? 1 : currentConfig.alarmDuration2;
+      }
       else
       {
         configChanged = false;
-        
       }
       break;
- 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
- 
-
-    case BV2:
+      /////////
+      case mnuCmdAlarmDuration3:
       configChanged = true;
       if (btn == BUTTON_UP_PRESSED || btn == BUTTON_UP_LONG_PRESSED)
       {
-        currentConfig.BV2Duration =  (++currentConfig.BV2Duration) > 500 ? 500: currentConfig.BV2Duration;
-       //  turnOffDelay3 = (short)currentConfig.BV2Duration * 1000 ;
+        currentConfig.alarmDuration3 = ++currentConfig.alarmDuration3 > 500 ? 500 : currentConfig.alarmDuration3;
       }
       else if (btn == BUTTON_DOWN_PRESSED || btn == BUTTON_DOWN_LONG_PRESSED)
       {
-        currentConfig.BV2Duration = --currentConfig.BV2Duration <1  ? 1  : currentConfig.BV2Duration;
-      //  turnOffDelay3 = (short)currentConfig.BV2Duration * 1000 ;
-       }
+        currentConfig.alarmDuration3 = --currentConfig.alarmDuration3 < 1 ? 1 : currentConfig.alarmDuration3;
+      }
       else
       {
         configChanged = false;
-        
       }
       break;
-
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
- 
-     
+      //////
+      case mnuCmdAlarmDuration4:
+      configChanged = true;
+      if (btn == BUTTON_UP_PRESSED || btn == BUTTON_UP_LONG_PRESSED)
+      {
+        currentConfig.alarmDuration4 = ++currentConfig.alarmDuration4 > 50 ? 50 : currentConfig.alarmDuration4;
+      }
+      else if (btn == BUTTON_DOWN_PRESSED || btn == BUTTON_DOWN_LONG_PRESSED)
+      {
+        currentConfig.alarmDuration4 = --currentConfig.alarmDuration4 < 1 ? 1 : currentConfig.alarmDuration4;
+      }
+      else
+      {
+        configChanged = false;
+      }
+      break;
+      ///////////
     case mnuCmdButtonBeep:
       configChanged = true;
       if (btn == BUTTON_UP_PRESSED || btn == BUTTON_UP_LONG_PRESSED)
@@ -759,8 +757,40 @@ byte processMenuCommand(byte cmdId)
         configChanged = false;
       }
       break;
- 
- 
+    case mnuCmdDisplayBrightness :
+      configChanged = true;
+      if (btn == BUTTON_UP_PRESSED || btn == BUTTON_UP_LONG_PRESSED)
+      {
+        currentConfig.displayBrightness++;
+        currentConfig.displayBrightness = constrain(currentConfig.displayBrightness, 1, 4);
+        setBacklightBrightness(currentConfig.displayBrightness);
+      }
+      else if (btn == BUTTON_DOWN_PRESSED || btn == BUTTON_DOWN_LONG_PRESSED)
+      {
+        currentConfig.displayBrightness--;
+        currentConfig.displayBrightness = constrain(currentConfig.displayBrightness, 1, 4);
+        setBacklightBrightness(currentConfig.displayBrightness);
+      }
+      else
+      {
+        configChanged = false;
+      }
+
+      break;
+       case mnuCmdResetToDefaults:
+      if (btn == BUTTON_SELECT_LONG_PRESSED)
+      {
+        currentConfig.setDefaults();
+        setBacklightBrightness(currentConfig.displayBrightness);
+        lcd.setCursor(1, 1);
+        lcd.print("Defaults loaded");
+      }
+      else if (/*btn == BUTTON_SELECT_SHORT_RELEASE ||*/ btn == BUTTON_SELECT_LONG_RELEASE)
+      {
+        complete = true;
+      }
+      break;
+    default:
       break;
   }
 
@@ -772,7 +802,7 @@ byte processMenuCommand(byte cmdId)
   if (complete)
   {
     currentConfig.save();
-    
+    initTimers();
   }
   return complete;
 }
@@ -830,44 +860,4 @@ void refreshMenuDisplay (byte refreshMode)
       lcd.print(rpad(strbuf, currentConfig.getFormattedStr(cmdId))); // Display config value.
     }
   }
-}
- 
- int alarm( int val){
-          if (val == 1){
-          
-          digitalWrite(valve1, HIGH);
-          digitalWrite(valve2, HIGH);  //// valve2 & 3 are together 
-          digitalWrite(valve4, HIGH); 
-          digitalWrite(air, HIGH);
-          digitalWrite(DC, HIGH);
-          digitalWrite(motor, HIGH);
-          lcd.clear();
-          lcd.setCursor (0,0);
-         
-          lcd.setCursor (0,1);
-          lcd.print("Corrct & Reset");
-           
-           for  (int i= 0; i<2000; i++){
-          tone(22,i);
-          i++;
-           }
-          delay(5000);
-           
-          ///change lcd color
-
-          ///send to bluetoooth alarm both oprator and customer
-
-          ///reset with SELECT btn
-            }
-            else if (val == false){
-            digitalWrite(valve2, LOW);  //// valve2 & 3 are together
-            digitalWrite(motor, LOW);
-            lcd.clear();
-            }
- }
- 
-void pulseCounter()
-{
-  // Increment the pulse counter
-  pulseCount2++;
 }
